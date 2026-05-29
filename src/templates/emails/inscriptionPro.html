@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inscription reçue - MediCare BJ</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:40px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr><td style="background:#1A6B8A;padding:32px 40px;text-align:center;">
+          <h1 style="color:#fff;margin:0;font-size:28px;">MediCare BJ</h1>
+          <p style="color:#B3D9E8;margin:8px 0 0;">Carnet de soins numérique</p>
+        </td></tr>
+
+        <!-- Body -->
+        <tr><td style="padding:40px;">
+
+          <!-- Icône en attente -->
+          <div style="text-align:center;margin-bottom:24px;">
+            <div style="background:#FFF3E0;border-radius:50%;width:64px;height:64px;display:inline-flex;align-items:center;justify-content:center;font-size:32px;line-height:64px;">⏳</div>
+          </div>
+
+          <!-- Titre -->
+          <h2 style="color:#E65100;text-align:center;margin:0 0 24px;">Inscription reçue !</h2>
+
+          <!-- Salutation -->
+          <p style="color:#444;line-height:1.6;margin:0 0 12px;">Bonjour {{prenom}},</p>
+
+          <!-- Message principal -->
+          <p style="color:#444;line-height:1.6;margin:0 0 24px;">
+            Votre demande d'inscription en tant que <strong>{{role_label}}</strong> sur MediCare BJ a bien été reçue et est en cours d'examen.
+          </p>
+
+          <!-- Encadré statut -->
+          <div style="background:#FFF3E0;border-left:4px solid #FF9800;padding:16px;border-radius:4px;margin:0 0 24px;">
+            <p style="color:#E65100;margin:0;line-height:1.6;">
+              ⏳ Votre dossier est en cours de vérification par notre équipe administrative. Vous recevrez un email de confirmation dès que votre compte sera activé.
+            </p>
+          </div>
+
+          <!-- Documents à préparer -->
+          <p style="color:#444;line-height:1.6;margin:0 0 12px;">
+            En attendant, vous pouvez préparer les documents suivants si ce n'est pas déjà fait :
+          </p>
+          <ul style="color:#444;line-height:1.8;margin:0 0 24px;padding-left:20px;">
+            <li>Copie de votre diplôme</li>
+            <li>Numéro d'ordre professionnel</li>
+            <li>Pièce d'identité officielle</li>
+          </ul>
+
+          <!-- Contact support -->
+          <p style="color:#444;line-height:1.6;margin:0 0 32px;">
+            Pour toute question, contactez notre support.
+          </p>
+
+          <!-- Bouton -->
+          <div style="text-align:center;margin:0 0 32px;">
+            <a href="{{app_url}}" style="background:#1A6B8A;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">Retour à l'accueil</a>
+          </div>
+
+          <!-- Note de bas de corps -->
+          <p style="color:#888;font-size:13px;margin:0;">Si vous n'avez pas créé ce compte, ignorez cet email.</p>
+
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="background:#f5f7fa;padding:20px 40px;text-align:center;">
+          <p style="color:#aaa;font-size:12px;margin:0;">© 2025 MediCare BJ — Tous droits réservés</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
