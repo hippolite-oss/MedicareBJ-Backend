@@ -29,15 +29,37 @@ const sequelize = new Sequelize(
   }
 );
 
+/**
+ * Connexion PostgreSQL + synchronisation Sequelize
+ */
 async function connectDB() {
-  await sequelize.authenticate();
-  logger.info('PostgreSQL authentifié');
+  try {
+    await sequelize.authenticate();
+    logger.info('PostgreSQL authentifié');
 
-  // Ne pas utiliser sync({ alter: true }) par défaut : tables déjà créées via migrations SQL.
-  // alter:true provoque des ALTER massifs et peut faire planter PostgreSQL (mémoire épuisée).
-  if (process.env.DB_SYNC_ALTER === 'true') {
-    logger.warn('DB_SYNC_ALTER=true — synchronisation Sequelize avec alter (lent)');
-    await sequelize.sync({ alter: true });
+    // Création simple des tables si elles n'existent pas
+    if (process.env.DB_SYNC === 'true') {
+      logger.info('Synchronisation simple des tables...');
+      await sequelize.sync();
+    }
+
+    // Mise à jour automatique des tables
+    if (process.env.DB_SYNC_ALTER === 'true') {
+      logger.warn('Synchronisation ALTER activée...');
+      await sequelize.sync({ alter: true });
+    }
+
+    // Suppression + recréation complète
+    if (process.env.DB_SYNC_FORCE === 'true') {
+      logger.warn('Synchronisation FORCE activée (suppression totale)...');
+      await sequelize.sync({ force: true });
+    }
+
+    logger.info('Base de données prête');
+
+  } catch (error) {
+    logger.error('Erreur connexion PostgreSQL :', error);
+    process.exit(1);
   }
 }
 
