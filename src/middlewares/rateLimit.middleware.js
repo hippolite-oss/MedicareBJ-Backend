@@ -1,82 +1,50 @@
 /**
- * middlewares/rateLimit.middleware.js — Rate limiting intelligent
- * Limites augmentées pour les clients mobiles avec React Query
+ * middlewares/rateLimit.middleware.js — Rate limiting
  */
-const rateLimit = require("express-rate-limit");
-const { tooManyRequests } = require("../utils/apiResponse");
+const rateLimit = require('express-rate-limit');
+const { tooManyRequests } = require('../utils/apiResponse');
 
-const handler = (req, res) => {
-  const retryAfter =
-    Math.ceil((req.rateLimit?.resetTime - Date.now()) / 1000) || 60;
-  res.setHeader("Retry-After", retryAfter);
-  tooManyRequests(
-    res,
-    `Trop de requêtes. Réessayez dans ${retryAfter} secondes.`,
-  );
-};
+const handler = (req, res) => tooManyRequests(res, 'Trop de requêtes. Réessayez plus tard.');
 
-// ── Rate limit global : 500 req / 15 min par IP ───────────────────────────────
-// React Query + Socket.IO peuvent générer ~20-30 req/min légitimes par session
+// Rate limit global : 200 req / 15 min par IP (augmenté pour le polling)
 const globalRateLimit = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX) || 500,
+  max: parseInt(process.env.RATE_LIMIT_MAX) || 200, // Augmenté de 100 à 200
   standardHeaders: true,
   legacyHeaders: false,
   handler,
-  skip: (req) => {
-    // Ne pas rate-limiter les health checks
-    return req.path === "/health";
-  },
 });
 
-// ── Rate limit auth : 10 tentatives / 15 min (anti-brute force) ─────────────
+// Rate limit auth : 5 tentatives / 15 min (anti-brute force)
 const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: parseInt(process.env.AUTH_RATE_LIMIT_MAX) || 10,
+  max: parseInt(process.env.AUTH_RATE_LIMIT_MAX) || 5,
   standardHeaders: true,
   legacyHeaders: false,
   handler,
-  skipSuccessfulRequests: true, // Compter seulement les échecs
+  skipSuccessfulRequests: true,
 });
 
-// ── Rate limit API par token : 600 req / 15 min ──────────────────────────────
-// ~40 req/min pour un utilisateur actif : conversations, notifications, données
+// Rate limit API : 300 req / 15 min par token
 const apiRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 600,
+  max: 300,
   keyGenerator: (req) => req.user?.id || req.ip,
   standardHeaders: true,
   legacyHeaders: false,
   handler,
 });
 
-// ── Rate limit compteurs (notifications + messages) ──────────────────────────
-// Ces endpoints sont appelés peu fréquemment grâce au socket (mise à jour push)
-// Mais on laisse une marge confortable
+// Rate limit pour les endpoints de comptage (notifications, messages)
+// Plus permissif car utilisé pour le polling
 const countRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100, // Réduit car le socket gère les updates en push
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500, // 500 requêtes (permet le polling fréquent)
   keyGenerator: (req) => req.user?.id || req.ip,
   standardHeaders: true,
   legacyHeaders: false,
   handler,
-  skipFailedRequests: true,
+  skipFailedRequests: true, // Ne pas compter les requêtes échouées
 });
 
-// ── Rate limit upload : 20 uploads / 15 min ──────────────────────────────────
-const uploadRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  keyGenerator: (req) => req.user?.id || req.ip,
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler,
-});
-
-module.exports = {
-  globalRateLimit,
-  authRateLimit,
-  apiRateLimit,
-  countRateLimit,
-  uploadRateLimit,
-};
+module.exports = { globalRateLimit, authRateLimit, apiRateLimit, countRateLimit };

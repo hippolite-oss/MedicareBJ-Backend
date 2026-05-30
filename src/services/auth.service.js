@@ -70,14 +70,6 @@ const authService = {
     // Email de bienvenue
     emailService.sendBienvenue(user).catch(() => {});
 
-    // Notifier les admins de la nouvelle inscription
-    notifyAdmins({
-      type: "inscription",
-      titre: "Nouveau patient inscrit",
-      contenu: `${prenom} ${nom} vient de s'inscrire en tant que ${role === "usager" ? "usager" : "patient"}.`,
-      metadata: { userId: user.id, role },
-    }).catch(() => {});
-
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
     await this._saveRefreshToken(user.id, refreshToken);
@@ -144,14 +136,6 @@ const authService = {
           "Votre dossier est en cours de validation par l'équipe MediCare BJ.",
       })
       .catch(() => {});
-
-    // Notifier les admins de la nouvelle demande de validation
-    notifyAdmins({
-      type: "validation",
-      titre: "Nouvelle demande de validation",
-      contenu: `${prenom} ${nom} (${specialite}) souhaite rejoindre MediCare BJ en tant que ${role}.`,
-      metadata: { userId: user.id, role, specialite },
-    }).catch(() => {});
 
     return { user, message: "Inscription en attente de validation" };
   },
@@ -335,52 +319,5 @@ const authService = {
     });
   },
 };
-
-/**
- * Notifie tous les admins via socket + notification en base
- */
-async function notifyAdmins({ type, titre, contenu, metadata = null }) {
-  try {
-    // Trouver tous les admins actifs
-    const admins = await Utilisateur.findAll({
-      where: { role: "admin", statut: "actif" },
-      attributes: ["id"],
-    });
-
-    if (!admins.length) return;
-
-    // Créer une notification en base pour chaque admin
-    await Promise.all(
-      admins.map((admin) =>
-        notificationService
-          .creer({
-            id_utilisateur: admin.id,
-            type,
-            titre,
-            contenu,
-            metadata,
-          })
-          .catch(() => {}),
-      ),
-    );
-
-    // Émettre également sur la room admin:global pour la réactivité maximale
-    try {
-      const { getIO } = require("../config/socket");
-      const io = getIO();
-      io.to("admin:global").emit("new_registration", {
-        type,
-        titre,
-        contenu,
-        metadata,
-        timestamp: new Date().toISOString(),
-      });
-    } catch {
-      // Socket pas encore initialisé — pas bloquant
-    }
-  } catch (err) {
-    logger.warn("[Auth] notifyAdmins erreur:", err.message);
-  }
-}
 
 module.exports = { authService };
