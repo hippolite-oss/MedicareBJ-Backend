@@ -32,6 +32,7 @@ const allowedOrigins = [
   'http://127.0.0.1:8080',
   'http://127.0.0.1:5173',
   'exp://localhost:8081',
+  'https://medicare-bj-frontend.vercel.app/',
 ];
 app.use(cors({
   origin: (origin, callback) => {
