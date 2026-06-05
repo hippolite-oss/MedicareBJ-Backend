@@ -267,6 +267,29 @@ const paiementController = {
       return success(res, { paiements: rows, meta: buildMeta(count, page, limit) });
     } catch (err) { next(err); }
   },
+
+  // ⚠️ Sandbox / simulation uniquement — ne jamais exposer en production
+  async simulerConfirmation(req, res, next) {
+    try {
+      if (process.env.FEDAPAY_SIMULATE !== 'true') {
+        return res.status(403).json({ success: false, message: 'Endpoint disponible en mode simulation uniquement' });
+      }
+
+      const paiement = await Paiement.findByPk(req.params.id);
+      if (!paiement) return notFound(res, 'Paiement introuvable');
+
+      if (paiement.id_patient !== req.user.id && req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Accès refusé' });
+      }
+
+      if (paiement.statut !== 'en_attente') {
+        return badRequest(res, `Ce paiement est déjà au statut : ${paiement.statut}`);
+      }
+
+      const paiementFinalise = await finaliserPaiementReussi(paiement);
+      return success(res, { id_paiement: paiementFinalise.id, statut: paiementFinalise.statut }, 'Paiement simulé confirmé');
+    } catch (err) { next(err); }
+  },
 };
 
 module.exports = { paiementController };

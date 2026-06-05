@@ -15,4 +15,7 @@ router.get('/:id/verifier', authenticate, requireRole('patient', 'usager', 'admi
 router.get('/:id/recu', authenticate, paiementController.getRecu);
 router.get('/', authenticate, requireRole('admin'), paiementController.listAdmin);
 
+// ⚠️ Sandbox uniquement — confirmer un paiement simulé manuellement
+router.post('/:id/simuler-confirmation', authenticate, paiementController.simulerConfirmation);
+
 module.exports = router;

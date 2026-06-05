@@ -11,12 +11,14 @@ async function run() {
 
   const password = await hashPassword('Password123!');
 
+  // Numéros au nouveau standard béninois (+229 + 10 chiffres, en vigueur depuis janvier 2024)
+  // MTN : préfixes 0196, 0197, 0162, 0163 | Moov : préfixes 0194, 0195, 0199
   await Utilisateur.bulkCreate([
-    { nom: 'Admin', prenom: 'Super', email: 'admin@medicarebi.bj', mot_de_passe: password, role: 'admin', statut: 'actif', telephone: '+22997000001' },
-    { nom: 'Hounkpatin', prenom: 'Adjoa', email: 'patient@medicarebi.bj', mot_de_passe: password, role: 'patient', statut: 'actif', telephone: '+22997000002', date_naissance: '1990-05-15', sexe: 'F' },
-    { nom: 'Adoukonou', prenom: 'Kossi', email: 'medecin@medicarebi.bj', mot_de_passe: password, role: 'medecin', statut: 'actif', telephone: '+22997000003', date_naissance: '1980-03-20', sexe: 'M' },
-    { nom: 'Agossou', prenom: 'Romuald', email: 'technicien@medicarebi.bj', mot_de_passe: password, role: 'technicien', statut: 'actif', telephone: '+22997000004', sexe: 'M' },
-    { nom: 'Sogbo', prenom: 'Aminata', email: 'medecin2@medicarebi.bj', mot_de_passe: password, role: 'medecin', statut: 'en_attente', telephone: '+22997000005', sexe: 'F' },
+    { nom: 'Admin', prenom: 'Super', email: 'admin@medicarebi.bj', mot_de_passe: password, role: 'admin', statut: 'actif', telephone: '+2290197000001' },
+    { nom: 'Hounkpatin', prenom: 'Adjoa', email: 'patient@medicarebi.bj', mot_de_passe: password, role: 'patient', statut: 'actif', telephone: '+2290197000002', date_naissance: '1990-05-15', sexe: 'F' },
+    { nom: 'Adoukonou', prenom: 'Kossi', email: 'medecin@medicarebi.bj', mot_de_passe: password, role: 'medecin', statut: 'actif', telephone: '+2290196000001', date_naissance: '1980-03-20', sexe: 'M' },
+    { nom: 'Agossou', prenom: 'Romuald', email: 'technicien@medicarebi.bj', mot_de_passe: password, role: 'technicien', statut: 'actif', telephone: '+2290194000001', sexe: 'M' },
+    { nom: 'Sogbo', prenom: 'Aminata', email: 'medecin2@medicarebi.bj', mot_de_passe: password, role: 'medecin', statut: 'en_attente', telephone: '+2290195000001', sexe: 'F' },
   ]);
 
   logger.info('✅ 5 utilisateurs de test créés (mot de passe : Password123!)');
