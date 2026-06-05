@@ -9,9 +9,9 @@ const { validate } = require('../middlewares/validate.middleware');
 const { initierPaiementSchema } = require('../validations/paiement.validation');
 
 router.post('/initier', authenticate, requireRole('patient', 'usager'), validate(initierPaiementSchema), paiementController.initier);
-router.post('/webhook/cinetpay', paiementController.webhookCinetPay); // sans auth
-router.post('/webhook/mtn', paiementController.webhookMTN); // sans auth
+router.post('/webhook/fedapay', paiementController.webhookFedaPay); // sans auth
 router.get('/mes-paiements', authenticate, requireRole('patient', 'usager'), paiementController.mesPaiements);
+router.get('/:id/verifier', authenticate, requireRole('patient', 'usager', 'admin'), paiementController.verifierStatut);
 router.get('/:id/recu', authenticate, paiementController.getRecu);
 router.get('/', authenticate, requireRole('admin'), paiementController.listAdmin);
 

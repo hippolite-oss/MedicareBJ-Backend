@@ -1,113 +1,147 @@
 /**
- * services/paiement.service.js — Intégration MTN Mobile Money + CinetPay
+ * services/paiement.service.js — FedaPay
  */
 const axios = require('axios');
-const crypto = require('crypto');
 const logger = require('../utils/logger');
+const {
+  FEDAPAY_MODES_MOBILE,
+  unwrapFedaPayResource,
+  formatTelephoneFedaPay,
+  getFedaPayBaseUrl,
+  mapStatutFedaPay,
+} = require('../utils/fedapay');
+
+let FedaPayWebhook;
+try {
+  FedaPayWebhook = require('fedapay').Webhook;
+} catch {
+  FedaPayWebhook = null;
+}
 
 const paiementService = {
+  _fedapayHeaders() {
+    const apiKey = process.env.FEDAPAY_SECRET_KEY;
+    if (!apiKey) throw new Error('FEDAPAY_SECRET_KEY non configurée');
+    return {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    };
+  },
+
   /**
-   * Initier un paiement MTN Mobile Money
+   * Créer une transaction FedaPay (checkout ou Mobile Money sans redirection)
    */
-  async initierMTN({ telephone, montant, id_paiement }) {
+  async initierFedaPay({
+    montant,
+    id_paiement,
+    email,
+    nom,
+    prenom,
+    telephone,
+    description = 'Paiement MediCare BJ',
+    modeMobile,
+  }) {
+    const baseUrl = getFedaPayBaseUrl();
+    const headers = this._fedapayHeaders();
+
+    const customer = {
+      email,
+      firstname: prenom,
+      lastname: nom,
+    };
+    if (telephone) {
+      customer.phone_number = formatTelephoneFedaPay(telephone);
+    }
+
+    const payload = {
+      description,
+      amount: Math.round(Number(montant)),
+      currency: { iso: 'XOF' },
+      callback_url: process.env.FEDAPAY_CALLBACK_URL || `${process.env.FRONTEND_URL}/paiement/retour`,
+      custom_metadata: { id_paiement },
+      customer,
+    };
+
     try {
-      // Obtenir un access token MTN
+      const createRes = await axios.post(`${baseUrl}/transactions`, payload, { headers });
+      const transaction = unwrapFedaPayResource(createRes.data);
+      const transactionId = transaction.id;
+
       const tokenRes = await axios.post(
-        'https://sandbox.momodeveloper.mtn.com/collection/token/',
+        `${baseUrl}/transactions/${transactionId}/token`,
         {},
-        {
-          headers: {
-            Authorization: `Basic ${Buffer.from(`${process.env.MTN_API_USER}:${process.env.MTN_API_KEY}`).toString('base64')}`,
-            'Ocp-Apim-Subscription-Key': process.env.MTN_SUBSCRIPTION_KEY,
-          },
-        }
+        { headers }
       );
+      const tokenPayload = tokenRes.data?.token ? tokenRes.data : unwrapFedaPayResource(tokenRes.data);
+      const paymentToken = tokenPayload.token;
+      const paymentUrl = tokenPayload.url;
 
-      const accessToken = tokenRes.data.access_token;
-
-      // Demande de paiement
-      const reference = id_paiement;
-      await axios.post(
-        'https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay',
-        {
-          amount: String(montant),
-          currency: process.env.MTN_CURRENCY || 'XOF',
-          externalId: reference,
-          payer: { partyIdType: 'MSISDN', partyId: telephone },
-          payerMessage: 'Paiement MediCare BJ',
-          payeeNote: 'Consultation médicale',
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'X-Reference-Id': reference,
-            'X-Target-Environment': process.env.MTN_ENVIRONMENT || 'sandbox',
-            'Ocp-Apim-Subscription-Key': process.env.MTN_SUBSCRIPTION_KEY,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      return { reference_mtn: reference, statut: 'en_attente' };
-    } catch (err) {
-      logger.error('Erreur MTN MoMo :', err.response?.data || err.message);
-      // En mode sandbox/dev, simuler le succès
-      if (process.env.NODE_ENV === 'development') {
-        return { reference_mtn: id_paiement, statut: 'en_attente', simule: true };
+      if (modeMobile && telephone && paymentToken) {
+        const methode = FEDAPAY_MODES_MOBILE[modeMobile];
+        if (!methode) throw new Error(`Mode FedaPay mobile non supporté : ${modeMobile}`);
+        await axios.post(
+          `${baseUrl}/${methode}`,
+          { token: paymentToken, phone_number: customer.phone_number },
+          { headers }
+        );
+        return {
+          reference_fedapay: String(transactionId),
+          statut: 'en_attente',
+          sans_redirection: true,
+        };
       }
-      throw new Error('Erreur initiation paiement MTN');
-    }
-  },
 
-  /**
-   * Initier un paiement CinetPay
-   */
-  async initierCinetPay({ montant, id_paiement, email, description = 'Paiement MediCare BJ' }) {
-    try {
-      const res = await axios.post('https://api-checkout.cinetpay.com/v2/payment', {
-        apikey: process.env.CINETPAY_APIKEY,
-        site_id: process.env.CINETPAY_SITE_ID,
-        transaction_id: id_paiement,
-        amount: montant,
-        currency: 'XOF',
-        description,
-        return_url: `${process.env.FRONTEND_URL}/paiement/retour`,
-        notify_url: process.env.CINETPAY_NOTIFY_URL,
-        customer_email: email,
-        channels: 'ALL',
-        lang: 'fr',
-      });
-
-      return { payment_url: res.data.data?.payment_url, statut: 'en_attente' };
+      return {
+        payment_url: paymentUrl,
+        reference_fedapay: String(transactionId),
+        statut: 'en_attente',
+      };
     } catch (err) {
-      logger.error('Erreur CinetPay :', err.response?.data || err.message);
-      throw new Error('Erreur initiation paiement CinetPay');
+      const fedapayErr = err.response?.data;
+      logger.error('Erreur FedaPay :', fedapayErr || err.message);
+
+      if (process.env.NODE_ENV === 'development' && process.env.FEDAPAY_SIMULATE === 'true') {
+        return {
+          payment_url: `${process.env.FRONTEND_URL}/paiement/retour?simule=1&id=${id_paiement}`,
+          reference_fedapay: id_paiement,
+          statut: 'en_attente',
+          simule: true,
+        };
+      }
+
+      const msg = String(fedapayErr?.message || fedapayErr?.error || err.message || '');
+      if (err.response?.status === 401 || /authentification/i.test(msg)) {
+        throw new Error(
+          'Clé API FedaPay invalide. Vérifiez FEDAPAY_SECRET_KEY (sk_sandbox_...) et FEDAPAY_ENVIRONMENT=sandbox dans .env'
+        );
+      }
+      throw new Error(msg || 'Erreur initiation paiement FedaPay');
     }
   },
 
-  /**
-   * Vérifier la signature HMAC d'un webhook CinetPay
-   */
-  verifierSignatureCinetPay(payload, signature) {
-    const secret = process.env.CINETPAY_SECRET_KEY;
-    const computed = crypto
-      .createHmac('sha256', secret)
-      .update(JSON.stringify(payload))
-      .digest('hex');
-    return computed === signature;
+  async recupererTransactionFedaPay(transactionId) {
+    const baseUrl = getFedaPayBaseUrl();
+    const res = await axios.get(`${baseUrl}/transactions/${transactionId}`, {
+      headers: this._fedapayHeaders(),
+    });
+    return unwrapFedaPayResource(res.data);
   },
 
-  /**
-   * Vérifier la signature d'un webhook MTN
-   */
-  verifierSignatureMTN(payload, signature) {
-    const secret = process.env.MTN_API_KEY;
-    const computed = crypto
-      .createHmac('sha256', secret)
-      .update(JSON.stringify(payload))
-      .digest('hex');
-    return computed === signature;
+  construireEvenementFedaPay(rawBody, signature) {
+    const secret = process.env.FEDAPAY_WEBHOOK_SECRET;
+    if (!secret) {
+      logger.warn('FEDAPAY_WEBHOOK_SECRET absent — parsing JSON sans vérification de signature');
+      const body = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : rawBody;
+      return typeof body === 'string' ? JSON.parse(body) : body;
+    }
+    if (!FedaPayWebhook) {
+      throw new Error('Package fedapay requis pour la vérification des webhooks');
+    }
+    const payload = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(JSON.stringify(rawBody));
+    return FedaPayWebhook.constructEvent(payload, signature, secret);
   },
+
+  mapStatutFedaPay,
 };
 
 module.exports = { paiementService };

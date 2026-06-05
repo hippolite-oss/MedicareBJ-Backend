@@ -1,11 +1,13 @@
 /**
  * controllers/rendezvous.controller.js
  */
-const { RendezVous, Utilisateur, Professionnel, AgendaMedecin, Hopital } = require('../models');
-const { success, created, notFound, conflict, forbidden } = require('../utils/apiResponse');
+const { RendezVous, Utilisateur, Professionnel, AgendaMedecin, Hopital, Paiement } = require('../models');
+const { success, created, notFound, conflict, forbidden, badRequest } = require('../utils/apiResponse');
 const { getPagination, buildMeta } = require('../utils/pagination');
 const { notificationService } = require('../services/notification.service');
 const { emailService } = require('../services/email.service');
+const { verifierCreneauDisponible } = require('../services/rendezvous.service');
+const { TARIF_CONSULTATION_RDV } = require('../utils/constants');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
 
@@ -27,7 +29,7 @@ const rendezvousController = {
           where,
           include: [
             { association: 'utilisateur', attributes: ['id', 'nom', 'prenom', 'photo_profil'] },
-            { association: 'hopital', attributes: ['id', 'nom', 'ville'] },
+            { association: 'hopital', attributes: ['id', 'nom', 'ville', 'telephone'] },
           ],
         });
         
@@ -49,7 +51,7 @@ const rendezvousController = {
           where,
           include: [
             { association: 'utilisateur', attributes: ['id', 'nom', 'prenom', 'photo_profil'] },
-            { association: 'hopital', attributes: ['id', 'nom', 'ville'] },
+            { association: 'hopital', attributes: ['id', 'nom', 'ville', 'telephone'] },
           ],
         });
         
@@ -76,7 +78,7 @@ const rendezvousController = {
         where,
         include: [
           { association: 'utilisateur', attributes: ['id', 'nom', 'prenom', 'photo_profil'] },
-          { association: 'hopital', attributes: ['id', 'nom', 'ville'] },
+          { association: 'hopital', attributes: ['id', 'nom', 'ville', 'telephone'] },
         ],
       });
       
@@ -128,24 +130,67 @@ const rendezvousController = {
     } catch (err) { next(err); }
   },
 
-  async create(req, res, next) {
+  async demandePaiement(req, res, next) {
     try {
-      const { id_medecin, id_hopital, date_heure, motif, duree_minutes = 30 } = req.body;
+      const { id_medecin, date_heure, motif, duree_minutes = 30 } = req.body;
 
-      // Vérifier disponibilité (transaction)
-      const conflit = await RendezVous.findOne({
-        where: {
-          id_medecin,
-          statut: { [Op.in]: ['planifie', 'confirme'] },
-          date_heure: {
-            [Op.between]: [
-              new Date(new Date(date_heure).getTime() - duree_minutes * 60000),
-              new Date(new Date(date_heure).getTime() + duree_minutes * 60000),
-            ],
+      const profil = await Professionnel.findOne({
+        where: { id_utilisateur: id_medecin, statut_validation: 'valide' },
+        include: [{ association: 'hopital' }],
+      });
+      if (!profil) return notFound(res, 'Médecin introuvable');
+      if (!profil.hopital) return badRequest(res, 'Ce médecin n\'est rattaché à aucun établissement');
+      if (!profil.hopital.telephone) {
+        return badRequest(res, 'L\'établissement n\'a pas de numéro Mobile Money configuré');
+      }
+
+      const disponible = await verifierCreneauDisponible(id_medecin, date_heure, duree_minutes);
+      if (!disponible) return conflict(res, 'Ce créneau est déjà réservé');
+
+      const paiement = await Paiement.create({
+        id_patient: req.user.id,
+        montant: TARIF_CONSULTATION_RDV,
+        mode_paiement: 'mtn_money',
+        statut: 'en_attente',
+        metadata: {
+          type: 'consultation_rdv',
+          pending_rdv: {
+            id_medecin,
+            id_hopital: profil.hopital.id,
+            date_heure,
+            motif,
+            duree_minutes,
+          },
+          hopital: {
+            id: profil.hopital.id,
+            nom: profil.hopital.nom,
+            telephone: profil.hopital.telephone,
           },
         },
       });
-      if (conflit) return conflict(res, 'Ce créneau est déjà réservé');
+
+      return created(res, {
+        id_paiement: paiement.id,
+        montant: Number(paiement.montant),
+        hopital: {
+          id: profil.hopital.id,
+          nom: profil.hopital.nom,
+          telephone: profil.hopital.telephone,
+        },
+      }, 'Demande de paiement créée — finalisez le règlement pour confirmer le RDV');
+    } catch (err) { next(err); }
+  },
+
+  async create(req, res, next) {
+    try {
+      if (req.user.role === 'patient' || req.user.role === 'usager') {
+        return badRequest(res, 'Le paiement de la consultation (5 000 FCFA) est requis avant la réservation');
+      }
+
+      const { id_medecin, id_hopital, date_heure, motif, duree_minutes = 30 } = req.body;
+
+      const disponible = await verifierCreneauDisponible(id_medecin, date_heure, duree_minutes);
+      if (!disponible) return conflict(res, 'Ce créneau est déjà réservé');
 
       const rdv = await RendezVous.create({ id_patient: req.user.id, id_medecin, id_hopital, date_heure, motif, duree_minutes });
 

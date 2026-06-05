@@ -40,7 +40,7 @@ const STATUTS_PAIEMENT = {
 const MODES_PAIEMENT = {
   MTN: 'mtn_money',
   MOOV: 'moov_money',
-  CINETPAY: 'cinetpay',
+  FEDAPAY: 'fedapay',
   ESPECES: 'especes',
 };
 
@@ -87,6 +87,8 @@ const ACTIONS_AUDIT = {
   RESET_PASSWORD: 'RESET_PASSWORD',
 };
 
+const TARIF_CONSULTATION_RDV = 5000;
+
 const SPECIALITES = [
   'Médecin généraliste', 'Cardiologue', 'Pédiatre', 'Radiologue',
   'Neurologue', 'Gynécologue', 'Dermatologue', 'Ophtalmologue',
@@ -98,5 +100,5 @@ const SPECIALITES = [
 module.exports = {
   ROLES, STATUTS_COMPTE, STATUTS_VALIDATION, STATUTS_RDV,
   STATUTS_PAIEMENT, MODES_PAIEMENT, STATUTS_QR, TYPES_ACCES,
-  TYPES_NOTIFICATION, ACTIONS_AUDIT, SPECIALITES,
+  TYPES_NOTIFICATION, ACTIONS_AUDIT, SPECIALITES, TARIF_CONSULTATION_RDV,
 };

@@ -52,7 +52,24 @@ app.use((req, res, next) => {
 });
 
 // ── Body parsing ──────────────────────────────────────────
-app.use(express.json({ limit: '10mb' }));
+const jsonParser = express.json({ limit: '10mb' });
+app.use((req, res, next) => {
+  if (req.path === '/api/v1/paiements/webhook/fedapay' && req.method === 'POST') {
+    return express.raw({ type: 'application/json' })(req, res, (err) => {
+      if (err) return next(err);
+      if (Buffer.isBuffer(req.body)) {
+        req.rawBody = req.body;
+        try {
+          req.body = req.body.length ? JSON.parse(req.body.toString('utf8')) : {};
+        } catch {
+          req.body = {};
+        }
+      }
+      next();
+    });
+  }
+  return jsonParser(req, res, next);
+});
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ── Protection pollution paramètres ──────────────────────

@@ -203,7 +203,7 @@ RendezVous.hasOne(AgendaMedecin, { foreignKey: "id_rdv", as: "agenda" });
 AgendaMedecin.belongsTo(RendezVous, { foreignKey: "id_rdv" });
 
 RendezVous.hasOne(Paiement, { foreignKey: "id_rdv", as: "paiement" });
-Paiement.belongsTo(RendezVous, { foreignKey: "id_rdv" });
+Paiement.belongsTo(RendezVous, { foreignKey: "id_rdv", as: "rendezvous" });
 
 Consultation.hasOne(Paiement, {
   foreignKey: "id_consultation",

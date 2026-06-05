@@ -11,9 +11,9 @@ const Paiement = sequelize.define('Paiement', {
   id_rdv: { type: DataTypes.UUID, allowNull: true },
   montant: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
   devise: { type: DataTypes.STRING(5), defaultValue: 'XOF' },
-  mode_paiement: { type: DataTypes.ENUM('mtn_money', 'moov_money', 'cinetpay', 'especes'), allowNull: false },
+  mode_paiement: { type: DataTypes.ENUM('mtn_money', 'moov_money', 'fedapay', 'especes'), allowNull: false },
   statut: { type: DataTypes.ENUM('en_attente', 'complete', 'echoue', 'rembourse'), defaultValue: 'en_attente' },
-  reference_externe: { type: DataTypes.STRING(255), allowNull: true }, // référence MTN/CinetPay
+  reference_externe: { type: DataTypes.STRING(255), allowNull: true }, // ID transaction FedaPay
   telephone_paiement: { type: DataTypes.STRING(20), allowNull: true },
   numero_recu: { type: DataTypes.STRING(50), allowNull: true, unique: true },
   pdf_recu_url: { type: DataTypes.STRING(500), allowNull: true },
