@@ -255,32 +255,38 @@ const utilisateurController = {
           .status(400)
           .json({ success: false, message: "Fichier manquant" });
 
-      const avatarDir = path.join(
-        process.env.UPLOAD_PATH || "./uploads",
-        "avatars",
-      );
-      // Créer le dossier si inexistant
-      if (!fs.existsSync(avatarDir))
-        fs.mkdirSync(avatarDir, { recursive: true });
+      const cloudinary = require("../config/cloudinary");
 
-      const outputPath = path.join(avatarDir, `${req.user.id}.webp`);
-      await sharp(req.file.path)
+      // Redimensionner avec sharp puis uploader vers Cloudinary via stream
+      const processedBuffer = await sharp(req.file.buffer)
         .resize(200, 200, { fit: "cover" })
         .webp({ quality: 85 })
-        .toFile(outputPath);
+        .toBuffer();
 
-      // Supprimer le fichier original
-      if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+      const cloudinaryUrl = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: "medicarebi/avatars",
+            public_id: req.user.id,
+            overwrite: true,
+            resource_type: "image",
+            format: "webp",
+          },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result.secure_url);
+          }
+        );
+        uploadStream.end(processedBuffer);
+      });
 
-      const url = `/uploads/avatars/${req.user.id}.webp`;
       await Utilisateur.update(
-        { photo_profil: url },
+        { photo_profil: cloudinaryUrl },
         { where: { id: req.user.id } },
       );
 
-      // Retourner l'utilisateur mis à jour
       const updatedUser = await Utilisateur.findByPk(req.user.id);
-      return success(res, { url, user: updatedUser }, "Avatar mis à jour");
+      return success(res, { url: cloudinaryUrl, user: updatedUser }, "Avatar mis à jour");
     } catch (err) {
       next(err);
     }

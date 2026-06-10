@@ -1,30 +1,10 @@
 /**
- * config/multer.js — Configuration Multer pour les uploads
+ * config/multer.js — Configuration Multer avec stockage mémoire (upload vers Cloudinary)
  */
 const multer = require("multer");
-const path = require("path");
-const { v4: uuidv4 } = require("uuid");
 
-// Stockage disque
-const fs = require("fs");
-
-const storage = (destination) =>
-  multer.diskStorage({
-    destination: (req, file, cb) => {
-      const uploadDir = path.join(
-        process.env.UPLOAD_PATH || "./uploads",
-        destination,
-      );
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname).toLowerCase();
-      cb(null, `${uuidv4()}${ext}`);
-    },
-  });
+// Stockage en mémoire (buffer), pas sur disque
+const memoryStorage = multer.memoryStorage();
 
 // Filtre images
 const imageFilter = (req, file, cb) => {
@@ -37,7 +17,7 @@ const imageFilter = (req, file, cb) => {
     );
 };
 
-// Filtre documents
+// Filtre documents (PDF + images)
 const documentFilter = (req, file, cb) => {
   const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
   if (allowed.includes(file.mimetype)) cb(null, true);
@@ -46,7 +26,7 @@ const documentFilter = (req, file, cb) => {
 
 // Upload avatar
 const uploadAvatar = multer({
-  storage: storage("avatars"),
+  storage: memoryStorage,
   fileFilter: imageFilter,
   limits: {
     fileSize: parseInt(process.env.AVATAR_MAX_SIZE) || 5 * 1024 * 1024,
@@ -55,7 +35,7 @@ const uploadAvatar = multer({
 
 // Upload analyse
 const uploadAnalyse = multer({
-  storage: storage("analyses"),
+  storage: memoryStorage,
   fileFilter: documentFilter,
   limits: {
     fileSize: parseInt(process.env.UPLOAD_MAX_SIZE) || 10 * 1024 * 1024,
@@ -64,7 +44,7 @@ const uploadAnalyse = multer({
 
 // Upload document général
 const uploadDocument = multer({
-  storage: storage("documents"),
+  storage: memoryStorage,
   fileFilter: documentFilter,
   limits: {
     fileSize: parseInt(process.env.UPLOAD_MAX_SIZE) || 10 * 1024 * 1024,
@@ -72,7 +52,7 @@ const uploadDocument = multer({
 });
 
 const uploadMessageMedia = multer({
-  storage: storage("messages"),
+  storage: memoryStorage,
   fileFilter: imageFilter,
   limits: {
     fileSize: parseInt(process.env.UPLOAD_MAX_SIZE) || 5 * 1024 * 1024,

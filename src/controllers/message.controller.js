@@ -196,7 +196,21 @@ const messageController = {
     try {
       if (!req.file) return badRequest(res, "Fichier manquant");
 
-      const mediaUrl = `/uploads/messages/${req.file.filename}`;
+      const cloudinary = require("../config/cloudinary");
+      const mediaUrl = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: "medicarebi/messages",
+            resource_type: "image",
+          },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result.secure_url);
+          }
+        );
+        uploadStream.end(req.file.buffer);
+      });
+
       return created(
         res,
         {

@@ -134,7 +134,20 @@ const analyseController = {
 
       let fichier_joint = analyse.fichier_joint;
       if (req.file) {
-        fichier_joint = `/uploads/analyses/${req.file.filename}`;
+        const cloudinary = require("../config/cloudinary");
+        fichier_joint = await new Promise((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              folder: "medicarebi/analyses",
+              resource_type: "auto",
+            },
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result.secure_url);
+            }
+          );
+          uploadStream.end(req.file.buffer);
+        });
       }
 
       await analyse.update({
@@ -209,7 +222,8 @@ const analyseController = {
       if (!analyse.fichier_joint) {
         return notFound(res, "Fichier non disponible");
       }
-      return res.sendFile(`.${analyse.fichier_joint}`, { root: "." });
+      // fichier_joint est désormais une URL Cloudinary
+      return res.redirect(analyse.fichier_joint);
     } catch (err) {
       return handleAccesError(err, res, next);
     }

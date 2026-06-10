@@ -57,7 +57,7 @@ const paiementService = {
       description,
       amount: Math.round(Number(montant)),
       currency: { iso: 'XOF' },
-      callback_url: process.env.FEDAPAY_CALLBACK_URL || `${process.env.FRONTEND_URL}/paiement/retour`,
+      callback_url: `${process.env.FEDAPAY_CALLBACK_URL || `${process.env.FRONTEND_URL}/paiement/retour`}?id_paiement=${id_paiement}`,
       custom_metadata: { id_paiement },
       customer,
     };
@@ -93,6 +93,7 @@ const paiementService = {
 
       return {
         payment_url: paymentUrl,
+        payment_token: paymentToken,
         reference_fedapay: String(transactionId),
         statut: 'en_attente',
       };
